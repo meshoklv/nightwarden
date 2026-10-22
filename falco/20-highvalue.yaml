@@ -1,0 +1,63 @@
+# NEW rules for a typical Linux server threat model not reliably covered by the stock
+# ruleset. Uses only standard Falco fields/macros (open_write, fd.*, proc.*) —
+# no upstream rule text copied.
+# Deploy target: /etc/falco/rules.d/20-highvalue.yaml
+
+- list: bot_c2_ports
+  items: [23, 2323, 7547, 48101, 53321, 58455, 1991, 4636, 6789, 3778, 6664, 6667, 31337, 4444, 5555]
+
+- macro: outbound_conn
+  condition: (evt.type=connect and evt.dir=< and fd.type in (ipv4, ipv6))
+
+- rule: Outbound connection to known bot/C2 port
+  desc: >
+    Outbound TCP to a port commonly used by Mirai-class bots (C2 callback,
+    telnet-scan, bot listener) or classic raw-reverse-shell ports. Real-time,
+    per-container companion to the malware-watch.sh socket-map check.
+    Applies EVERYWHERE, including dev containers — this is
+    the traffic class of typical Mirai-style botnet infections.
+  condition: outbound_conn and fd.rport in (bot_c2_ports)
+  output: >
+    SUSPICIOUS EGRESS to bot/C2 port (cmd=%proc.cmdline conn=%fd.name
+    user=%user.name container=%container.name image=%container.image.repository)
+  priority: CRITICAL
+  tags: [network, mitre_command_and_control]
+
+- rule: Execution from /tmp outside known toolchains
+  desc: Binary executed directly from /tmp that is not one of the known dev tools.
+  condition: >
+    spawned_process and
+    (proc.exe startswith /tmp/ or proc.exe contains "/tmp/") and
+    not dev_toolchain_proc
+  output: >
+    EXEC FROM /tmp (proc=%proc.name exe=%proc.exe cmd=%proc.cmdline
+    parent=%proc.pname user=%user.name container=%container.name)
+  priority: CRITICAL
+  tags: [process, mitre_defense_evasion]
+
+- rule: Persistence file tampering (ld.so.preload/cron/ssh-authorized_keys)
+  desc: >
+    Write to classic Linux persistence hooks — dynamic-linker preload, cron,
+    or SSH authorized_keys — the same class the malware-watch.sh baseline hashes.
+  condition: >
+    open_write and
+    (fd.name = /etc/ld.so.preload or
+     fd.name startswith /etc/cron.d/ or
+     fd.name startswith /etc/cron.daily/ or
+     fd.name startswith /etc/cron.hourly/ or
+     fd.name startswith /etc/cron.weekly/ or
+     fd.name startswith /var/spool/cron/ or
+     fd.name = /etc/crontab or
+     fd.name glob "/root/.ssh/authorized_keys*" or
+     fd.name glob "/home/*/.ssh/authorized_keys*")
+  output: >
+    PERSISTENCE write to %fd.name by %proc.name (cmd=%proc.cmdline
+    parent=%proc.pname user=%user.name container=%container.name)
+  priority: CRITICAL
+  tags: [persistence, mitre_persistence]
+
+# Already covered by stock falco_rules.yaml — kept enabled, not reimplemented:
+#   "Fileless execution via memfd_create" (CRITICAL) — memfd/anon-exec, our main blind spot.
+#   "Execution from /dev/shm" (WARNING).
+#   "Redirect STDOUT/STDIN to Network Connection in Container" (reverse shell via fd).
+#   "Netcat Remote Code Execution in Container".

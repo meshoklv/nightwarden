@@ -1,0 +1,22 @@
+{
+  "_comment": "Settings for the triage session. WARNING: this is NOT a security boundary, only a hint: measured 2026-07-29, a command outside the allow list still runs, and a Bash deny rule also disables the needed probe. The real boundary is a separate unprivileged user and a read-only filesystem (see the systemd unit). This lists what the analysis clearly does not need, so the model does not waste turns on it.",
+  "permissions": {
+    "defaultMode": "default",
+    "allow": [
+      "Bash(/usr/local/lib/alert-triage/probe:*)"
+    ],
+    "deny": [
+      "Bash(rm:*)", "Bash(kill:*)", "Bash(pkill:*)", "Bash(killall:*)",
+      "Bash(iptables:*)", "Bash(nft:*)", "Bash(ufw:*)", "Bash(ip:*)",
+      "Bash(systemctl:*)", "Bash(service:*)", "Bash(mount:*)", "Bash(umount:*)",
+      "Bash(curl:*)", "Bash(wget:*)", "Bash(nc:*)", "Bash(ncat:*)",
+      "Bash(socat:*)", "Bash(ssh:*)", "Bash(scp:*)", "Bash(rsync:*)",
+      "Bash(docker:*)", "Bash(sudo:*)", "Bash(su:*)", "Bash(chmod:*)",
+      "Bash(chown:*)", "Bash(dd:*)", "Bash(tee:*)", "Bash(crontab:*)",
+      "Bash(at:*)", "Bash(git:*)", "Bash(npm:*)", "Bash(pip:*)",
+      "WebFetch", "WebSearch", "Task", "NotebookEdit"
+    ]
+  },
+  "enableAllProjectMcpServers": false,
+  "includeCoAuthoredBy": false
+}

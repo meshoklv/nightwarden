@@ -1,0 +1,37 @@
+## nightwarden — core auditd rules (keys consumed by bin/audit-bridge.py)
+##
+## Install (install.sh --with-audit does this and DROPS lines whose path does
+## not exist, because auditd refuses to load a rule file with a missing -w path):
+##   cp nightwarden.rules /etc/audit/rules.d/60-nightwarden.rules && augenrules --load
+##
+## Keys: authkeys (login-key changes), secrets_read (reads of your secret files),
+##       exec_tmp (execution from world-writable dirs), modules (kernel modules).
+
+## --- who can log in: authorized_keys / sshd config (key: authkeys) ---
+-w /root/.ssh/ -p wa -k authkeys
+-w /etc/ssh/sshd_config -p wa -k authkeys
+-w /etc/ssh/sshd_config.d/ -p wa -k authkeys
+## add yours:  -w /home/USER/.ssh/ -p wa -k authkeys
+
+## --- reads of secrets (key: secrets_read) — EDIT: list YOUR secret files/dirs ---
+## -w /home/USER/.secrets/ -p r -k secrets_read
+## -w /etc/myapp/secrets.env -p r -k secrets_read
+
+## --- execution from temp dirs (key: exec_tmp), 64- AND 32-bit ---
+## Mirai-family bots are very often 32-bit ELF, which bypasses arch=b64-only rules.
+-a always,exit -F arch=b64 -S execve -F dir=/tmp -F key=exec_tmp
+-a always,exit -F arch=b64 -S execve -F dir=/var/tmp -F key=exec_tmp
+-a always,exit -F arch=b64 -S execve -F dir=/dev/shm -F key=exec_tmp
+-a always,exit -F arch=b32 -S execve -F dir=/tmp -F key=exec_tmp
+-a always,exit -F arch=b32 -S execve -F dir=/var/tmp -F key=exec_tmp
+-a always,exit -F arch=b32 -S execve -F dir=/dev/shm -F key=exec_tmp
+
+## --- kernel modules (key: modules), 64- AND 32-bit ---
+-a always,exit -F arch=b64 -S init_module,delete_module,finit_module -F key=modules
+-a always,exit -F arch=b32 -S init_module,delete_module,finit_module -F key=modules
+
+## --- noise control: ssh client reading its own keys on the host ---
+## NB: auditd resolves exe= to an inode at load time, so this does NOT silence
+## the same binary inside a container (different inode). Replace USER.
+## -a never,exit -F dir=/home/USER/.ssh -F perm=r -F exe=/usr/bin/ssh
+## (never,exit rules must come BEFORE the matching -w rules to take effect.)

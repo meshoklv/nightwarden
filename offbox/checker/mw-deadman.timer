@@ -1,0 +1,13 @@
+# /etc/systemd/system/mw-deadman.timer  on each checker host
+[Unit]
+Description=Run the off-box dead-man pull every minute
+
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=60          # every 1 min; watcher heartbeats every 1 min
+AccuracySec=10s
+RandomizedDelaySec=10       # checkers don't hammer the watched host in lockstep
+Persistent=false
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,18 @@
+# /etc/systemd/system/mw-deadman.service  on each checker host
+[Unit]
+Description=Off-box dead-man pull + integrity check of the watched host's malware-watch
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/mw-deadman-check.sh check
+Nice=5
+# hardening (this unit only reads a key, curls Telegram, and writes /var/lib/mw-deadman)
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/mw-deadman
+PrivateTmp=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes

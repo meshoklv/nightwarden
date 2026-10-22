@@ -1,0 +1,49 @@
+# Narrow (NOT disable) the stock rules that are guaranteed to fire on every
+# interactive dev session (shell, tmux, npm/pip) inside the containers matched
+# by `dev_workspace_container` (see 00-host-macros.yaml).
+# `override: condition: append` AND-combines this onto the ORIGINAL stock
+# condition (requires Falco >= 0.38; the old `append: true` is deprecated), so
+# behavior for any container OUTSIDE dev_workspace_container is untouched --
+# an unexpected shell in a random new container still fires normally.
+# Deploy target: /etc/falco/rules.d/10-quiet-dev-noise.yaml
+
+- rule: Terminal shell in container
+  condition: and not dev_workspace_container
+  override:
+    condition: append
+
+- rule: Launch Package Management Process in Container
+  condition: and not dev_workspace_container
+  override:
+    condition: append
+
+- rule: Write below binary dir
+  condition: and not dev_workspace_container
+  override:
+    condition: append
+
+- rule: Write below etc
+  condition: and not (dev_workspace_container and dev_toolchain_proc)
+  override:
+    condition: append
+
+# Deliberately NOT narrowed: "Launch Suspicious Network Tool in Container"
+# (nc/ncat/socat/nmap) and "Search Private Keys or Passwords" -- these are the
+# tooling class used in the incident this kit was born from. They keep firing
+# everywhere, including inside your own dev containers.
+#
+# The stock priority of both is below falcosidekick's default paging threshold
+# (CRITICAL), so they would be silently dropped from alerts. Raise them to
+# CRITICAL (this replaces ONLY the priority; conditions stay stock). Expect
+# some noise from the key-search rule; narrow it by exact command later, do not
+# blanket-exempt it. If you prefer not to page on them, delete these two
+# overrides and lower minimumpriority in falcosidekick instead.
+- rule: Launch Suspicious Network Tool in Container
+  priority: CRITICAL
+  override:
+    priority: replace
+
+- rule: Search Private Keys or Passwords
+  priority: CRITICAL
+  override:
+    priority: replace

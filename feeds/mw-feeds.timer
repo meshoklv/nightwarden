@@ -1,0 +1,14 @@
+# /etc/systemd/system/mw-feeds.timer
+# Runs the feed fetch every ~12h (inside the recommended 6-24h window), plus a quick refresh shortly after boot. Persistent so a missed
+# run (box off) fires on next boot.
+[Unit]
+Description=Periodic threat-intel feed refresh (mw-feeds)
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=12h
+RandomizedDelaySec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

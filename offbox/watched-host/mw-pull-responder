@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# ============================================================================
+# mw-pull-responder — read-only status/integrity emitter for the OFF-BOX
+# dead-man pull. Deployed on: the watched host.
+#
+# Invoked ONLY through the restricted ssh key of user `mwpull`, whose
+# authorized_keys forces:  command="/usr/bin/sudo -n /usr/local/sbin/mw-pull-responder",restrict
+# so possessing that key lets the caller run EXACTLY this one script (as root
+# via a single narrow NOPASSWD sudoers rule) and nothing else. No args are
+# honored (ssh forced-command ignores the client command line).
+#
+# It prints ONE line of JSON: liveness (heartbeat + monotonic seq), a hash of
+# the append-only event ledger tail, and sha256 of every file an attacker would
+# have to touch to neutralise the watcher. The hashes are computed LIVE from the
+# real files at pull time — the off-box checker compares them to values it
+# pinned once. It never prints file CONTENTS (env is emitted only as a hash).
+#
+# Path is fixed & root-owned (755 root:root) so mwpull cannot rewrite it.
+# ============================================================================
+set -uo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+umask 077
+
+S=/var/lib/malware-watch
+HB=$S/heartbeat
+SEQ=$S/seq
+LEDGER=/var/log/malware-watch/events-ledger.jsonl   # append-only (chattr +a), see 05-onbox-watcher-patch.md
+BASE=$S/baseline
+
+h(){ sha256sum "$1" 2>/dev/null | cut -d' ' -f1; }   # -> "" if file absent/unreadable
+uintf(){ tr -cd '0-9' <"$1" 2>/dev/null; }           # sanitise numeric state files
+
+now=$(date -u +%s)
+hb=$(uintf "$HB");  : "${hb:=0}"
+seq=$(uintf "$SEQ"); : "${seq:=0}"
+
+# tail hash + line count of the append-only ledger (rollback / truncation evidence)
+evtail=$(tail -n 200 "$LEDGER" 2>/dev/null | sha256sum | cut -d' ' -f1)
+evcount=$(wc -l <"$LEDGER" 2>/dev/null | tr -cd '0-9'); : "${evcount:=0}"
+
+# is the ledger still append-only? (a=append-only flag). "1" = protected, "0" = cleared/absent.
+ledger_a=0
+if command -v lsattr >/dev/null 2>&1; then
+  lsattr "$LEDGER" 2>/dev/null | awk '{print $1}' | grep -q 'a' && ledger_a=1
+fi
+
+# baseline dir fingerprint: sorted (name + content-hash) of every pin file
+basel=$( { cd "$BASE" 2>/dev/null && for f in $(ls -1 2>/dev/null | LC_ALL=C sort); do
+            printf '%s:' "$f"; sha256sum "$f" 2>/dev/null | cut -d' ' -f1; done; } \
+         | sha256sum | cut -d' ' -f1 )
+
+printf '{"v":1,"host":"%s","now":%s,"hb":%s,"seq":%s,"evtail":"%s","evcount":%s,"ledger_append_only":%s,"pins":{"watch":"%s","hb":"%s","resp":"%s","svc":"%s","timer":"%s","hbsvc":"%s","hbtimer":"%s","harden":"%s","env":"%s","baseline":"%s","mwpull_ak":"%s","auditd":"%s","sudoers":"%s"}}\n' \
+  "$(hostname -s 2>/dev/null || echo host)" "$now" "$hb" "$seq" "$evtail" "$evcount" "$ledger_a" \
+  "$(h /usr/local/sbin/malware-watch.sh)" \
+  "$(h /usr/local/sbin/malware-watch-hb.sh)" \
+  "$(h /usr/local/sbin/mw-pull-responder)" \
+  "$(h /etc/systemd/system/malware-watch.service)" \
+  "$(h /etc/systemd/system/malware-watch.timer)" \
+  "$(h /etc/systemd/system/malware-watch-hb.service)" \
+  "$(h /etc/systemd/system/malware-watch-hb.timer)" \
+  "$(h /etc/systemd/system/malware-watch.service.d/hardening.conf)" \
+  "$(h /etc/malware-watch.env)" \
+  "$basel" \
+  "$(h /home/mwpull/.ssh/authorized_keys)" \
+  "$(h /etc/audit/rules.d/mw.rules)" \
+  "$(h /etc/sudoers.d/mw-pull)"
+exit 0

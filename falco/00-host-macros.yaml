@@ -1,0 +1,29 @@
+# Context macros, loaded after the stock falco_rules.yaml
+# (rules_files order puts rules.d last), so these can reference/narrow stock rules.
+# Deploy target: /etc/falco/rules.d/00-host-macros.yaml
+#
+# EDIT THE TWO LISTS BELOW for your environment. The values shown are harmless
+# examples only.
+
+# Containers where interactive dev work is expected (noisy-but-legitimate
+# shells, package managers, toolchains). Exact container names:
+- list: dev_container_names
+  items: [dev-shared, workspace-main]
+
+# Containers matched by name prefix (add one `startswith` line per prefix in the
+# macro below; Falco has no list-of-prefixes operator).
+- macro: dev_workspace_container
+  condition: >
+    (container.name in (dev_container_names) or
+     container.name startswith "dev-" or
+     container.name startswith "workspace-")
+
+# Processes that are normal inside a dev container. Extend with your own tools.
+- list: dev_toolchain_procs
+  items: [node, bun, deno, npm, npx, python3, pip, pip3, git, tmux, rg, fd]
+
+- macro: dev_toolchain_proc
+  condition: >
+    (proc.name in (dev_toolchain_procs) or
+     proc.exe endswith "/node" or proc.exe endswith "/bun" or
+     proc.exe contains "ms-playwright")

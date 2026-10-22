@@ -1,0 +1,79 @@
+[Unit]
+# Automatic triage of host-guard alerts.
+# WARNING: deliberately NOT a dependency of the guard: the guard must keep
+# working even if the triage is broken, disabled or removed. There is no
+# feedback path by construction.
+Description=Host-guard alert triage (separate read-only Claude session)
+After=network-online.target malware-watch.timer
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/alert-triage.env
+ExecStart=/usr/local/lib/alert-triage/triage-daemon.py
+Restart=on-failure
+RestartSec=30
+# Do not let the service restart in a loop: five failures in half an hour = stop.
+# Otherwise a broken triage would burn money and logs forever.
+StartLimitIntervalSec=1800
+StartLimitBurst=5
+
+# ------------------- MEMORY AND CPU -------------------
+# Other workloads live on the machine. The triage must not choke them: it has
+# its own memory ceiling and two CPU cores at most.
+MemoryMax=1500M
+MemoryHigh=1200M
+CPUQuota=200%
+TasksMax=256
+Nice=10
+IOSchedulingClass=idle
+
+# ------------------- SECURITY BOUNDARY -------------------
+# This is the real protection, NOT the Claude settings (verified: its allow
+# list does not work as a whitelist). Even a fully hijacked analysis runs into
+# the kernel.
+#
+# The service starts as root (otherwise the guard's logs, which are root-only,
+# cannot be read), but the Claude SESSION ITSELF is started as the mwtriage
+# user via setpriv inside the daemon. Everything below applies to the whole
+# process tree at once.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+RemoveIPC=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @debug @mount @swap @reboot @module @obsolete @raw-io @clock
+
+# Writes are possible ONLY in its own three directories. Everything else,
+# including the guard, its logs, /etc and /usr, is read-only. The analysis
+# physically cannot forge its own rating, wipe evidence or touch guard files.
+ReadWritePaths=/var/log/alert-triage /var/lib/alert-triage /run/alert-triage
+ReadOnlyPaths=/var/log/malware-watch /var/log/bait-watch /var/lib/malware-watch
+RuntimeDirectory=alert-triage
+RuntimeDirectoryMode=0750
+StateDirectory=alert-triage
+LogsDirectory=alert-triage
+
+# Other processes' /proc is needed for the analysis -- hide only what can be hidden.
+ProtectProc=default
+ProcSubset=all
+
+[Install]
+WantedBy=multi-user.target

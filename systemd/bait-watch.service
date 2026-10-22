@@ -1,0 +1,26 @@
+[Unit]
+Description=bait-watch - honeytoken read trap (fanotify)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/bait-watch.py --daemon
+Restart=always
+RestartSec=5
+# fanotify needs CAP_SYS_ADMIN; DAC_READ_SEARCH to mark other users' files
+AmbientCapabilities=CAP_SYS_ADMIN CAP_DAC_READ_SEARCH
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_READ_SEARCH CAP_SYS_PTRACE
+NoNewPrivileges=yes
+ProtectHome=no
+PrivateTmp=yes
+ProtectSystem=full
+ReadWritePaths=/var/log/bait-watch /var/lib/bait-watch /var/lib/malware-watch /var/log/malware-watch
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bait-watch
+MemoryMax=256M
+CPUQuota=25%
+
+[Install]
+WantedBy=multi-user.target

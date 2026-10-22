@@ -1,0 +1,13 @@
+[Unit]
+Description=nightwarden morning digest timer (07:00 UTC; keep in sync with DIGEST_SCHEDULE_UTC)
+
+[Timer]
+# Persistent=false on purpose: a missed run is NOT caught up, the digest goes out only on schedule.
+OnCalendar=*-*-* 07:00:00 UTC
+Persistent=false
+AccuracySec=1min
+RandomizedDelaySec=90
+Unit=mw-digest.service
+
+[Install]
+WantedBy=timers.target

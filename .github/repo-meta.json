@@ -1,0 +1,6 @@
+{
+  "name": "nightwarden",
+  "description": "Night watchman for Linux servers: detects Mirai-class implants and secret theft, traps intruders with honeytokens, explains alerts.",
+  "homepage": "",
+  "topics": ["security", "intrusion-detection", "linux", "malware-detection", "honeytoken", "mirai", "incident-response", "bash", "falco", "auditd"]
+}

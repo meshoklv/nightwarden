@@ -1,0 +1,16 @@
+# falcosidekick main config -- no secrets here (tokens/URLs come from env, see
+# falcosidekick.env.example). Deploy target: /etc/falcosidekick/config.yaml
+listenport: 2801
+debug: false
+
+# Telegram output: TELEGRAM_TOKEN / TELEGRAM_CHATID / TELEGRAM_MINIMUMPRIORITY
+# are injected via EnvironmentFile. Leave TELEGRAM_TOKEN unset to disable.
+telegram: {}
+
+# Optional generic webhook (falcosidekick's native output). Set WEBHOOK_ADDRESS
+# (and WEBHOOK_MINIMUMPRIORITY) in the env file to enable. NOTE: falcosidekick
+# POSTs the full Falco event JSON (fields: output, priority, rule, time,
+# output_fields); it does NOT send {"text": ...}. For Slack/Discord/ntfy use
+# their dedicated falcosidekick outputs (slack:, discord:, ntfy: sections) or a
+# small translating proxy.
+webhook: {}

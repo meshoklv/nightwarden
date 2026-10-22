@@ -1,0 +1,89 @@
+#!/usr/sbin/nft -f
+# ============================================================================
+# mw-blocklist.nft — native nftables blocklist.
+# Loaded ONCE at boot by mw-blocklist.service. Only meaningful when nft is
+# installed; if nft is absent, ignore this file and use the iptables fallback
+# built by mw-feeds.sh instead.
+#
+# DESIGN
+#   Own table `inet mw_feed`, completely SEPARATE from the iptables filter table
+#   the watcher (malware-watch.sh MW_BLOCK/MW_BLOCK_OUT) and your own firewall
+#   rules write to. On Ubuntu 24.04 `iptables` is iptables-nft, so those rules
+#   live in the compat table `ip filter`; this native `inet mw_feed` table is a
+#   different table with its own base chains. Both are evaluated by the kernel —
+#   if EITHER drops, the packet is dropped. We only ADD drops for known-bad IPs,
+#   so we cannot open anything or fight your other rules. We NEVER call
+#   `nft flush ruleset` and never touch any table but our own.
+#
+#   Priority -150 (before the compat filter hooks at 0) => cheap early drop.
+#   policy accept => everything not matching a bad set falls through untouched.
+#
+#   TWO sets:
+#     static4 : curated IOC CIDRs. PERMANENT (no timeout). CRIT tier. EMPTY by
+#               default. Keep in sync with malware-watch IOC_CIDRS.
+#               auto-merge tolerates overlap.
+#     feed4   : threat-intel feed / dynamic entries. interval+timeout =>
+#               O(1) match and AUTO-EXPIRE. mw-feeds.sh flush+refills this set.
+#               timeout 3d means if the feed loader ever stops, entries age out
+#               and stop dropping — failing toward "no drop" (safe for a
+#               blocklist), never toward block-all. BLOCK-ONLY: nothing here can
+#               ever trigger the watcher's kill path.
+#
+# Idempotent reload pattern: create-empty -> delete -> recreate. Re-running this
+# file cleanly rebuilds the table. NOTE: reloading WIPES feed4; mw-feeds.sh
+# reloads it on the next timer tick, and mw-blocklist.service runs
+# `mw-feeds.sh load-cached` right after to restore from cache immediately.
+# ============================================================================
+
+table inet mw_feed {}
+delete table inet mw_feed
+
+table inet mw_feed {
+
+    set static4 {
+        type ipv4_addr
+        flags interval
+        auto-merge
+        # Curated IOC networks: EMPTY by default. To add some, uncomment and edit
+        # (keep in sync with malware-watch IOC_CIDRS), e.g.:
+        #   elements = { 198.51.100.0/24, 203.0.113.0/24 }
+        # NOTE: do not write `elements = { }` -- an empty element list is a syntax
+        # error in nft; simply leave the line out when you have no entries.
+    }
+
+    set feed4 {
+        type ipv4_addr
+        flags interval, timeout
+        timeout 3d
+    }
+
+    chain input_drop {
+        type filter hook input priority -150; policy accept;
+        # curated IOC is dropped unconditionally (even established flows)
+        ip saddr @static4 drop
+        # never cut established connections (e.g. your own SSH session) because
+        # of a noisy feed entry; only NEW flows are filtered by feed4
+        ct state established,related accept
+        ip saddr @feed4   drop
+    }
+
+    chain output_drop {
+        type filter hook output priority -150; policy accept;
+        # NOTE: outbound drop. mw-feeds.sh excludes your SELF_IPS / VPN endpoint
+        # and the feed hosts from feed4, and static4 is curated, so this cannot
+        # black-hole legit egress or the feed fetch itself.
+        ip daddr @static4 drop
+        ct state established,related accept
+        ip daddr @feed4   drop
+    }
+
+    chain forward_drop {
+        type filter hook forward priority -150; policy accept;
+        # container traffic, both directions
+        ip saddr @static4 drop
+        ip daddr @static4 drop
+        ct state established,related accept
+        ip saddr @feed4   drop
+        ip daddr @feed4   drop
+    }
+}

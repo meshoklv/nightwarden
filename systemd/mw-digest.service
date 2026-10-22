@@ -1,0 +1,12 @@
+[Unit]
+Description=nightwarden morning digest (one calm message per day)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/mw-digest.py
+TimeoutStartSec=120
+PrivateTmp=yes
+ProtectHome=no
+NoNewPrivileges=yes

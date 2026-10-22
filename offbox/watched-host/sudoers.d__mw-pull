@@ -1,0 +1,8 @@
+# Watched host: install as  /etc/sudoers.d/mw-pull   (root:root, 0440)
+# Lets ONLY user mwpull run ONLY the responder as root, no password, no tty.
+# Validate before/after install:  visudo -cf /etc/sudoers.d/mw-pull
+#
+# NOTE: /usr/local/sbin/mw-pull-responder MUST be root:root and NOT writable by
+# mwpull (or anyone but root), else the sudo rule becomes a root-escalation.
+mwpull ALL=(root) NOPASSWD: /usr/local/sbin/mw-pull-responder
+Defaults!/usr/local/sbin/mw-pull-responder !requiretty

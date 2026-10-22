@@ -1,0 +1,35 @@
+# /etc/systemd/system/mw-feeds.service
+# Threat-intel feed fetch + atomic blocklist load. Oneshot, driven by
+# mw-feeds.timer (every ~12h). NOT the 60s malware-watch job — fetches must
+# never run in that tight budget.
+[Unit]
+Description=Fetch threat-intel IP feeds and load blocklist (mw-feeds)
+Documentation=file:/usr/local/sbin/mw-feeds.sh
+Wants=network-online.target
+After=network-online.target nss-lookup.target
+# NOTE: network-online.target does NOT guarantee the VPN tunnel
+# is up. mw-feeds.sh tolerates this — a failed fetch keeps last-known-good — so
+# ordering is best-effort. If you have a VPN unit (e.g. the gluetun/wg service),
+# add it here:  After=<your-vpn>.service   Wants=<your-vpn>.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/mw-feeds.sh run
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=300
+
+# hardening (root is required for nft/iptables; keep the rest tight)
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/mw-feeds /var/log
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,26 @@
+# /etc/systemd/system/mw-blocklist.service
+# Loads the native nftables blocklist table (static4 + empty feed4 + hooks) at
+# boot, then restores feed entries from cache. NO-OP if nft is not installed
+# (ConditionPathExists gates it) — in that case the iptables fallback built by
+# mw-feeds.sh is what protects the box instead.
+[Unit]
+Description=Load nftables threat blocklist table inet mw_feed
+Documentation=file:/etc/nftables.d/mw-blocklist.nft
+ConditionPathExists=/usr/sbin/nft
+DefaultDependencies=no
+After=nftables.service
+Before=network-pre.target
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# create/refresh our own table only (never flushes the full ruleset)
+ExecStart=/usr/sbin/nft -f /etc/nftables.d/mw-blocklist.nft
+# immediately repopulate feed4 from last-known-good cache (no network)
+ExecStartPost=/usr/local/sbin/mw-feeds.sh load-cached
+# on stop, drop ONLY our table (leave other rules alone)
+ExecStop=/usr/sbin/nft delete table inet mw_feed
+
+[Install]
+WantedBy=multi-user.target

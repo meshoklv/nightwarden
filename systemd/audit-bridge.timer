@@ -1,0 +1,11 @@
+[Unit]
+Description=audit-bridge every 2 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+AccuracySec=20s
+Unit=audit-bridge.service
+
+[Install]
+WantedBy=timers.target

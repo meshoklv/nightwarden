@@ -1,0 +1,13 @@
+[Unit]
+Description=audit-bridge - turns auditd events into alerts
+After=auditd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/audit-bridge.py
+Nice=10
+IOSchedulingClass=idle
+RuntimeMaxSec=120
+NoNewPrivileges=yes
+ProtectHome=read-only
+PrivateTmp=yes

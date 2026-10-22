@@ -1,0 +1,15 @@
+# /home/mwpull/.ssh/authorized_keys on the watched host  (owner mwpull:mwpull, 0600; dir 0700)
+#
+# ONE line per off-box checker key (one key per checker host). The forced command +
+# `restrict` mean this key can ONLY run the responder: no shell, no pty, no
+# port-forward, no agent, no X11, no user-rc. Even if the private key is stolen
+# off a checker host, the attacker gains only the read-only responder JSON.
+#
+# Generate a keypair ON EACH checker host, keep the PRIVATE half there root-only,
+# paste the PUBLIC half below:
+#     ssh-keygen -t ed25519 -N '' -C mw-deadman-pull@checker-a -f /root/.ssh/mw_deadman_checker_a
+#
+# Then put each PUBLIC key here, each prefixed with the exact restriction below:
+
+command="/usr/bin/sudo -n /usr/local/sbin/mw-pull-responder",restrict ssh-ed25519 AAAA_REPLACE_WITH_CHECKER_A_PUBKEY mw-deadman-pull@checker-a
+command="/usr/bin/sudo -n /usr/local/sbin/mw-pull-responder",restrict ssh-ed25519 AAAA_REPLACE_WITH_CHECKER_B_PUBKEY mw-deadman-pull@checker-b   # optional second checker

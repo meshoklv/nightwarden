@@ -1,0 +1,23 @@
+# Append to /root/.ssh/config on each checker host (0600).
+# Give each checker its OWN keypair (one key, one role).
+
+Host watched-host-mw
+    HostName 198.51.100.20                       # address of the watched host (reachable from the checker)
+    User mwpull
+    IdentityFile /root/.ssh/mw_deadman_checker_a # a different key file on each checker
+    IdentitiesOnly yes
+    # OPTIONAL: only if the watched host is not directly reachable (e.g. it sits
+    # on a private LAN behind a jump host). Uncomment and edit:
+    #ProxyJump jumpuser@jump.example.org:22
+    StrictHostKeyChecking accept-new
+    UserKnownHostsFile /var/lib/mw-deadman/known_hosts   # writable under ProtectHome=read-only
+    ConnectTimeout 10
+    ServerAliveInterval 5
+    ServerAliveCountMax 2
+
+# If you use a jump host, restrict the checker's key there with an authorized_keys
+# line on the JUMP host, so it can only tunnel to the watched host's sshd:
+#   restrict,port-forwarding,permitopen="198.51.100.20:22" ssh-ed25519 AAAA... mw-deadman-jump@checker-a
+# The mwpull key itself is command=-restricted on the watched host (see
+# ../watched-host/mwpull.authorized_keys.example), so even full theft of
+# /root/.ssh/mw_deadman_* yields only the responder's JSON output.

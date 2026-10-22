@@ -1,0 +1,25 @@
+# Deploy target: /etc/systemd/system/falcosidekick.service
+[Unit]
+Description=falcosidekick - Falco alert router (Telegram and/or webhook)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/falcosidekick -c /etc/falcosidekick/config.yaml
+EnvironmentFile=/etc/falcosidekick/falcosidekick.env
+Restart=always
+RestartSec=5
+User=falcosidekick
+Group=falcosidekick
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+MemoryMax=128M
+MemoryHigh=96M
+CPUQuota=20%
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,12 @@
+*.env
+!*.env.example
+*.pins
+*.key
+*_rsa
+id_*
+*.log
+*.bak
+*secret*
+*token*
+__pycache__/
+state/

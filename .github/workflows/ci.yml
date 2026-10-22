@@ -1,0 +1,15 @@
+name: lint
+on: [push, pull_request]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: bash syntax
+        run: |
+          set -e
+          for f in $(git ls-files '*.sh'); do bash -n "$f"; done
+      - name: python compile
+        run: python3 -m compileall -q bin triage/bin falco
+      - name: installer dry-run
+        run: ./install.sh --dry-run
